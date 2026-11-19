@@ -1,0 +1,2391 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Daybook — timeregistrering</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+
+    --bg: #EDEEE9;
+    --panel: #FFFFFF;
+    --ink: #1B211D;
+    --ink-soft: #5B655C;
+    --ink-faint: #8C948B;
+    --line: #DBDED5;
+    --line-strong: #C4C8BC;
+    --accent: #2F6F4F;
+    --accent-ink: #F4F8F4;
+    --accent-soft: rgba(47,111,79,0.07);
+    --danger: #B4432F;
+    --shadow: 0 1px 2px rgba(27,33,29,0.06), 0 6px 16px rgba(27,33,29,0.05);
+    --shadow-lift: 0 4px 10px rgba(27,33,29,0.10), 0 14px 32px rgba(27,33,29,0.10);
+    --ease: 0.14s cubic-bezier(.3,0,.2,1);
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14181A;
+      --panel: #1D2224;
+      --ink: #ECEFEA;
+      --ink-soft: #A2ABA1;
+      --ink-faint: #6E766D;
+      --line: #2C3230;
+      --line-strong: #3B423E;
+      --accent: #4F9E76;
+      --accent-ink: #0E1613;
+      --accent-soft: rgba(79,158,118,0.13);
+      --danger: #E17358;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 6px 20px rgba(0,0,0,0.35);
+      --shadow-lift: 0 6px 16px rgba(0,0,0,0.35), 0 18px 40px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14181A;
+    --panel: #1D2224;
+    --ink: #ECEFEA;
+    --ink-soft: #A2ABA1;
+    --ink-faint: #6E766D;
+    --line: #2C3230;
+    --line-strong: #3B423E;
+    --accent: #4F9E76;
+    --accent-ink: #0E1613;
+    --accent-soft: rgba(79,158,118,0.13);
+    --danger: #E17358;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 6px 20px rgba(0,0,0,0.35);
+    --shadow-lift: 0 6px 16px rgba(0,0,0,0.35), 0 18px 40px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  button, input, textarea, .activity-row, .entry-block, .day-col {
+    transition: background-color var(--ease), border-color var(--ease), color var(--ease), box-shadow var(--ease), opacity var(--ease);
+  }
+  button { font-family: var(--font-ui); }
+  button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app {
+    display: flex;
+    min-height: 100vh;
+    height: 100%;
+  }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    width: 250px;
+    flex: 0 0 250px;
+    padding: 22px 18px 18px;
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .brand-mark {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 23px;
+    letter-spacing: -0.015em;
+    position: relative;
+    padding-left: 15px;
+  }
+  .brand-mark::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 50%;
+    transform: translateY(-48%);
+    width: 9px; height: 9px;
+    border-radius: 3px;
+    background: var(--accent);
+  }
+  .brand-sub {
+    font-size: 12px;
+    color: var(--ink-faint);
+  }
+
+  .panel-label {
+    font-size: calc(12.5px * var(--notes-scale, 1));
+    font-weight: 600;
+    color: var(--ink-soft);
+    margin-bottom: 10px;
+  }
+
+  .activity-list { display: flex; flex-direction: column; gap: 2px; }
+  .activity-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 8px;
+    border-radius: 6px;
+    cursor: grab;
+    border: 1px solid transparent;
+    position: relative;
+  }
+  .activity-row:hover { background: var(--bg); }
+  .activity-row.active {
+    border-color: var(--accent);
+    background: var(--panel);
+    box-shadow: var(--shadow);
+  }
+  .activity-row:active { cursor: grabbing; }
+  .dot {
+    width: 11px; height: 11px;
+    border-radius: 3px;
+    flex: 0 0 11px;
+  }
+  .activity-name {
+    font-size: 13.5px;
+    font-weight: 500;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .activity-del, .activity-edit {
+    opacity: 0;
+    background: none;
+    border: none;
+    color: var(--ink-faint);
+    font-size: 17px;
+    cursor: pointer;
+    padding: 4px 6px;
+    line-height: 1;
+    border-radius: 5px;
+  }
+  .activity-edit { font-size: 13px; }
+  .activity-del:hover, .activity-edit:hover { background: var(--bg); }
+  .activity-row:hover .activity-del, .activity-row:hover .activity-edit { opacity: 1; }
+  .activity-del:hover { color: var(--danger); }
+  .activity-edit:hover { color: var(--ink); }
+  .activity-name-input {
+    font-family: var(--font-ui);
+    font-size: 13.5px;
+    font-weight: 500;
+    flex: 1;
+    min-width: 0;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 1px 5px;
+    background: var(--panel);
+    color: var(--ink);
+  }
+
+  .add-activity-btn {
+    margin-top: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    background: none;
+    border: 1px dashed var(--line-strong);
+    border-radius: 6px;
+    padding: 7px 8px;
+    cursor: pointer;
+    text-align: left;
+  }
+  .add-activity-btn:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .new-activity-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    background: var(--bg);
+    border-radius: 8px;
+    margin-top: 6px;
+  }
+  .new-activity-form input[type="text"] {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    padding: 6px 8px;
+    border: 1px solid var(--line-strong);
+    border-radius: 5px;
+    background: var(--panel);
+    color: var(--ink);
+  }
+  .swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+  .swatch {
+    width: 20px; height: 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    border: 2px solid transparent;
+  }
+  .swatch.picked { border-color: var(--ink); }
+  .form-actions { display: flex; gap: 8px; margin-top: 2px; }
+  .btn {
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 6px 11px;
+    border-radius: 5px;
+    border: 1px solid var(--line-strong);
+    background: var(--panel);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn:hover { border-color: var(--ink-faint); }
+
+  .totals-list { display: flex; flex-direction: column; gap: 7px; }
+  .totals-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 13px;
+  }
+  .totals-name { flex: 1; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .totals-val { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .totals-grand {
+    margin-top: 4px;
+    padding-top: 9px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .hint {
+    margin-top: auto;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--ink-faint);
+  }
+
+  /* ---------- Notes resizer ---------- */
+  .notes-resizer {
+    width: 7px;
+    flex: 0 0 7px;
+    cursor: col-resize;
+    background: transparent;
+    position: relative;
+  }
+  .notes-resizer::after {
+    content: "";
+    position: absolute;
+    top: 0; bottom: 0; left: 3px;
+    width: 1px;
+    background: var(--line);
+  }
+  .notes-resizer:hover::after, .notes-resizer.dragging::after {
+    background: var(--accent);
+    width: 2px;
+    left: 2.5px;
+  }
+  .main-toggle {
+    position: absolute;
+    top: 14px; left: 50%;
+    transform: translateX(-50%);
+    width: 20px; height: 26px;
+    border-radius: 6px;
+    border: 1px solid var(--line-strong);
+    background: var(--panel);
+    color: var(--ink-soft);
+    cursor: pointer;
+    font-size: 11px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: var(--shadow);
+    touch-action: auto;
+    z-index: 2;
+  }
+  .main-toggle:hover { color: var(--ink); border-color: var(--accent); }
+  .main.collapsed-section { display: none; }
+  .notes-panel.fill-space { flex: 1 1 auto; width: auto; }
+
+  /* ---------- Notes panel ---------- */
+  .notes-panel {
+    width: 300px;
+    flex: 0 0 300px;
+    padding: 22px 18px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    --notes-scale: 1;
+  }
+  .text-size-controls {
+    display: flex;
+    gap: 4px;
+  }
+  .text-size-controls button {
+    width: 20px; height: 20px;
+    border-radius: 5px;
+    border: 1px solid var(--line-strong);
+    background: var(--panel);
+    color: var(--ink-soft);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1;
+  }
+  .text-size-controls button:hover { color: var(--ink); border-color: var(--accent); }
+  .notes-panel.collapsed .text-size-controls { display: none; }
+  .notes-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .notes-toggle {
+    width: 22px; height: 22px;
+    flex: 0 0 22px;
+    border-radius: 6px;
+    border: 1px solid var(--line-strong);
+    background: var(--panel);
+    color: var(--ink-soft);
+    cursor: pointer;
+    font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .notes-toggle:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .notes-panel.collapsed {
+    width: 46px;
+    flex: 0 0 46px;
+    padding: 22px 8px;
+  }
+  .notes-panel.collapsed .panel-label,
+  .notes-panel.collapsed .notes-sub,
+  .notes-panel.collapsed textarea,
+  .notes-panel.collapsed .notes-saved,
+  .notes-panel.collapsed .daily-overview-wrap {
+    display: none;
+  }
+  .notes-panel.collapsed .notes-header { justify-content: center; }
+  .notes-sub {
+    font-size: calc(12px * var(--notes-scale, 1));
+    color: var(--ink-faint);
+    margin-top: -6px;
+  }
+  #notesArea {
+    flex: 1;
+    min-height: 220px;
+    resize: vertical;
+    font-family: var(--font-ui);
+    font-size: calc(13px * var(--notes-scale, 1));
+    line-height: 1.55;
+    padding: 10px 11px;
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    background: var(--panel);
+    color: var(--ink);
+  }
+  #notesArea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .notes-saved {
+    font-size: calc(11px * var(--notes-scale, 1));
+    color: var(--ink-faint);
+    height: 14px;
+  }
+
+  /* ---------- Main ---------- */
+  .main {
+    flex: 1;
+    min-width: 0;
+    padding: 20px 24px 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    row-gap: 8px;
+    min-width: 0;
+  }
+  .range-label {
+    font-family: var(--font-display);
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .nav-btn {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--line-strong);
+    background: var(--panel);
+    color: var(--ink);
+    cursor: pointer;
+    font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .nav-btn:active { transform: translateY(1px); }
+  .today-btn {
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--line-strong);
+    background: var(--panel);
+    cursor: pointer;
+    color: var(--ink-soft);
+  }
+  .today-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  .view-toggle {
+    display: flex;
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-left: auto;
+  }
+  .view-toggle button {
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border: none;
+    background: var(--panel);
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+  .view-toggle button + button { border-left: 1px solid var(--line-strong); }
+  .view-toggle button.active { background: var(--accent); color: var(--accent-ink); }
+  .view-toggle button:not(.active):hover { color: var(--ink); }
+
+  .size-controls {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .size-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .size-control label {
+    font-size: 12px;
+    color: var(--ink-faint);
+    white-space: nowrap;
+  }
+  .size-control input[type="range"] {
+    width: 84px;
+    accent-color: var(--accent);
+  }
+
+  .calendar-wrap {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    overflow: auto;
+    min-width: 0;
+  }
+  .calendar {
+    display: grid;
+    min-width: 0;
+  }
+  .corner {
+    position: sticky; left: 0; top: 0; z-index: 3;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+  }
+  .day-head {
+    position: sticky; top: 0; z-index: 2;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+    padding: 10px 0 9px;
+    text-align: center;
+    user-select: none;
+  }
+  .day-head .dow { font-size: 11px; color: var(--ink-faint); font-weight: 600; }
+  .day-head .dnum {
+    font-size: 15px; font-weight: 600; margin-top: 2px;
+  }
+  .day-head.today .dnum {
+    display: inline-flex; align-items:center; justify-content:center;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--accent); color: var(--accent-ink);
+  }
+  .time-gutter {
+    position: sticky; left: 0; z-index: 1;
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+  }
+  .time-gutter-inner { position: relative; }
+  .hour-label {
+    position: absolute;
+    right: 6px;
+    transform: translateY(-6px);
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+  .day-col {
+    position: relative;
+    border-right: 1px solid var(--line);
+    touch-action: pan-x;
+  }
+  .day-col.today-col { background: var(--accent-soft); }
+  .gridline {
+    position: absolute; left: 0; right: 0;
+    border-top: 1px solid var(--line);
+  }
+  .gridline.half { border-top: 1px dashed var(--line); opacity: 0.6; }
+  .day-col.today-col .gridline { border-top-color: var(--line-strong); }
+  .day-col.dragover-hint { background: var(--accent-soft); }
+
+  .entry-block {
+    position: absolute;
+    left: 3px; right: 3px;
+    border-radius: 7px;
+    padding: 4px 7px;
+    color: #fff;
+    font-size: 11.5px;
+    line-height: 1.3;
+    overflow: hidden;
+    cursor: grab;
+    touch-action: none;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2), 0 1px 0 rgba(255,255,255,0.08) inset;
+  }
+  .entry-block::before {
+    content: "";
+    position: absolute; inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0) 60%);
+    pointer-events: none;
+  }
+  .entry-block:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.24), 0 1px 0 rgba(255,255,255,0.08) inset; }
+  .entry-block:active { cursor: grabbing; }
+  .entry-block.selected {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+    box-shadow: var(--shadow-lift);
+  }
+  .entry-name { font-weight: 600; }
+  .entry-time { opacity: 0.9; }
+  .entry-handle {
+    position: absolute; left: 0; right: 0; height: 7px;
+    cursor: ns-resize;
+  }
+  .entry-handle.top { top: 0; }
+  .entry-handle.bottom { bottom: 0; }
+  .entry-del, .entry-comment-btn {
+    position: absolute; top: 3px;
+    background: rgba(0,0,0,0.32);
+    border: none; color: #fff;
+    width: 21px; height: 21px;
+    border-radius: 5px;
+    font-size: 13px; line-height: 1;
+    cursor: pointer;
+    display: none;
+    align-items: center; justify-content: center;
+  }
+  .entry-del:hover, .entry-comment-btn:hover { background: rgba(0,0,0,0.5); }
+  .entry-del { right: 3px; }
+  .entry-comment-btn { right: 27px; font-size: 12px; }
+  .entry-block:hover .entry-del, .entry-block.selected .entry-del,
+  .entry-block:hover .entry-comment-btn, .entry-block.selected .entry-comment-btn { display: flex; }
+  .entry-note {
+    opacity: 0.9;
+    font-style: italic;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .entry-note-dot {
+    position: absolute; bottom: 3px; right: 4px;
+    font-size: 9px;
+    opacity: 0.9;
+  }
+
+  @keyframes pop-in {
+    from { opacity: 0; transform: translateY(-3px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .comment-popover {
+    position: fixed;
+    z-index: 65;
+    background: var(--panel);
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    box-shadow: var(--shadow-lift);
+    padding: 10px;
+    width: 220px;
+    animation: pop-in 0.12s ease-out;
+  }
+  .comment-popover textarea {
+    width: 100%;
+    min-height: 70px;
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    line-height: 1.45;
+    padding: 6px 8px;
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--ink);
+    resize: vertical;
+  }
+  .comment-popover textarea:focus { outline: none; border-color: var(--accent); }
+  .comment-popover-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 7px;
+  }
+
+  .drag-ghost {
+    position: absolute;
+    left: 3px; right: 3px;
+    border-radius: 6px;
+    background: rgba(47,111,79,0.18);
+    border: 1.5px dashed var(--accent);
+    pointer-events: none;
+  }
+
+  .float-tip {
+    position: fixed;
+    z-index: 50;
+    background: var(--ink);
+    color: var(--bg);
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 5px;
+    pointer-events: none;
+    white-space: nowrap;
+    transform: translate(12px, -50%);
+  }
+
+  .ctx-menu {
+    position: fixed;
+    z-index: 60;
+    background: var(--panel);
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    box-shadow: var(--shadow-lift);
+    padding: 5px;
+    min-width: 150px;
+    animation: pop-in 0.12s ease-out;
+  }
+  .ctx-item {
+    font-size: 13px;
+    padding: 7px 9px;
+    border-radius: 5px;
+    cursor: pointer;
+    color: var(--ink);
+  }
+  .ctx-item:hover { background: var(--bg); }
+  .ctx-item.danger { color: var(--danger); }
+  .ctx-item.disabled { color: var(--ink-faint); cursor: default; }
+  .ctx-item.disabled:hover { background: none; }
+
+  .toast {
+    position: fixed;
+    bottom: 22px; left: 50%;
+    transform: translate(-50%, 0);
+    background: var(--ink);
+    color: var(--bg);
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+    z-index: 70;
+    opacity: 0;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, -4px); }
+
+  .daily-overview-wrap {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    padding: 12px 14px 6px;
+    max-height: 46vh;
+    overflow-y: auto;
+  }
+  .daily-overview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .daily-overview-title {
+    font-size: calc(12.5px * var(--notes-scale, 1));
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  .daily-overview-toggle {
+    width: 22px; height: 22px;
+    flex: 0 0 22px;
+    border-radius: 6px;
+    border: 1px solid var(--line-strong);
+    background: var(--panel);
+    color: var(--ink-soft);
+    cursor: pointer;
+    font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .daily-overview-toggle:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .daily-overview-wrap.collapsed { padding-bottom: 12px; }
+  .daily-overview-wrap.collapsed #dailyOverview { display: none; }
+  .day-group {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 10px;
+    background: var(--panel);
+  }
+  .day-group:last-child { margin-bottom: 0; }
+  .day-group-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: calc(12.5px * var(--notes-scale, 1));
+    font-weight: 700;
+    color: var(--ink);
+    padding: 7px 10px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+  }
+  .day-group-header.today { background: var(--accent-soft); }
+  .day-header-label { font-weight: 700; }
+  .day-header-total {
+    font-size: calc(12.5px * var(--notes-scale, 1));
+    font-weight: 800;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .day-group-body { padding: 8px 10px 2px; }
+  .day-activity-block { margin-bottom: 8px; }
+  .day-activity-block:last-child { margin-bottom: 0; }
+  .day-empty {
+    font-size: calc(12px * var(--notes-scale, 1));
+    color: var(--ink-faint);
+    font-style: italic;
+    padding: 2px 0 4px;
+  }
+  .day-activity-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: calc(12.5px * var(--notes-scale, 1));
+    padding: 1px 0;
+  }
+  .day-activity-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .day-activity-hours {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-soft);
+    min-width: 30px;
+    text-align: right;
+  }
+  .day-activity-hours.zero { color: var(--ink-faint); font-weight: 500; }
+
+  .daily-note-input {
+    display: block;
+    width: calc(100% - 18px);
+    margin-top: 4px;
+    margin-left: 18px;
+    font-family: var(--font-ui);
+    font-size: calc(12px * var(--notes-scale, 1));
+    line-height: 1.4;
+    padding: 4px 8px;
+    min-height: 26px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+    color: var(--ink);
+    resize: none;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+  .daily-note-input::placeholder { color: var(--ink-faint); }
+  .daily-note-input:focus { outline: none; border-color: var(--accent); background: var(--panel); }
+  .daily-note-input:hover { border-color: var(--line-strong); }
+
+  .activity-comment-toggle {
+    width: 14px; height: 14px;
+    flex: 0 0 14px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  .help-btn {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+    background: var(--panel);
+    color: var(--ink-soft);
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    margin-left: 2px;
+  }
+  .help-btn:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(20,24,22,0.45);
+    z-index: 100;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 6vh 16px;
+    overflow-y: auto;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    position: relative;
+    background: var(--panel);
+    border-radius: 12px;
+    max-width: 560px;
+    width: 100%;
+    padding: 30px 32px 26px;
+    box-shadow: var(--shadow-lift);
+    animation: pop-in 0.16s ease-out;
+  }
+  .modal-close {
+    position: absolute; top: 14px; right: 14px;
+    width: 26px; height: 26px;
+    border-radius: 6px;
+    border: none;
+    background: none;
+    color: var(--ink-faint);
+    font-size: 17px;
+    cursor: pointer;
+  }
+  .modal-close:hover { color: var(--ink); background: var(--bg); }
+  .modal h2 {
+    font-family: var(--font-display);
+    font-size: 21px;
+    font-weight: 600;
+    margin: 0 0 4px;
+  }
+  .modal .modal-sub {
+    font-size: 12.5px;
+    color: var(--ink-faint);
+    margin: 0 0 20px;
+  }
+  .guide-section { margin-bottom: 16px; }
+  .guide-section:last-child { margin-bottom: 0; }
+  .guide-section h3 {
+    font-size: 13.5px;
+    font-weight: 600;
+    margin: 0 0 5px;
+  }
+  .guide-section p {
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+  .guide-section p + p { margin-top: 6px; }
+  .guide-section kbd {
+    font-family: var(--font-ui);
+    font-size: 11.5px;
+    font-weight: 600;
+    background: var(--bg);
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    padding: 1px 5px;
+    color: var(--ink);
+  }
+
+  @media (max-width: 800px) {
+    .app { flex-direction: column; }
+    .sidebar {
+      width: 100%; flex: none;
+      border-right: none; border-bottom: 1px solid var(--line);
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 16px;
+    }
+    .brand { width: 100%; }
+    .sidebar > div { min-width: 150px; }
+    .hint { display: none; }
+    .main { padding: 16px; }
+    .notes-resizer { display: none; }
+    .notes-panel {
+      width: 100%; flex: none;
+      border-top: 1px solid var(--line);
+      padding: 16px;
+    }
+    #notesArea { min-height: 140px; }
+    .notes-panel.collapsed {
+      width: 100%; flex: none;
+      padding: 10px 16px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">Daybook</span>
+      <span class="brand-sub">timeregistrering</span>
+      <button class="help-btn" id="helpBtn" title="Brukerveiledning">?</button>
+    </div>
+
+    <div>
+      <div class="panel-label">Aktiviteter</div>
+      <div class="activity-list" id="activityList"></div>
+      <button class="add-activity-btn" id="addActivityBtn">+ Ny aktivitet</button>
+      <div class="new-activity-form" id="newActivityForm" style="display:none;">
+        <input type="text" id="newActivityName" placeholder="Aktivitetsnavn" maxlength="40">
+        <div class="swatches" id="swatchPicker"></div>
+        <div class="form-actions">
+          <button class="btn primary" id="saveActivityBtn">Legg til</button>
+          <button class="btn" id="cancelActivityBtn">Avbryt</button>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel-label">Totalt denne uken</div>
+      <div class="totals-list" id="totalsList"></div>
+      <div class="totals-grand" id="totalsGrand"></div>
+    </div>
+
+    <div class="hint">
+      Klikk på en aktivitet for å gjøre den aktiv, klikk eller dra deretter i rutenettet for å registrere tid — eller dra aktiviteten direkte inn i kalenderen.
+      Dra kantene på en registrering for å endre lengden, dra selve blokken for å flytte den.
+      Kopier en valgt registrering med <strong>Ctrl/Cmd+C</strong>, lim inn med <strong>Ctrl/Cmd+V</strong>, eller høyreklikk for flere valg.
+    </div>
+  </div>
+
+  <div class="main" id="mainSection">
+    <div class="toolbar">
+      <button class="nav-btn" id="prevWeek">‹</button>
+      <button class="nav-btn" id="nextWeek">›</button>
+      <div class="range-label" id="rangeLabel"></div>
+      <button class="today-btn" id="todayBtn">Denne uken</button>
+      <div class="view-toggle" id="viewToggle">
+        <button data-mode="full" id="modeFullBtn">Hel uke</button>
+        <button data-mode="work" id="modeWorkBtn">Arbeidsuke</button>
+      </div>
+      <div class="size-controls">
+        <div class="size-control">
+          <label for="rowHeightSlider">Radhøyde</label>
+          <input type="range" id="rowHeightSlider" min="0.7" max="2.4" step="0.1">
+        </div>
+        <div class="size-control">
+          <label for="colWidthSlider">Kolonnebredde</label>
+          <input type="range" id="colWidthSlider" min="70" max="240" step="10">
+        </div>
+      </div>
+    </div>
+
+    <div class="calendar-wrap">
+      <div class="calendar" id="calendar"></div>
+    </div>
+  </div>
+
+  <div class="notes-resizer" id="notesResizer">
+    <button class="main-toggle" id="mainToggleBtn" title="Skjul kalenderseksjonen">‹</button>
+  </div>
+  <div class="notes-panel" id="notesPanel">
+    <div class="daily-overview-wrap" id="dailyOverviewWrap">
+      <div class="daily-overview-header">
+        <div class="daily-overview-title">Daglig oversikt</div>
+        <button class="daily-overview-toggle" id="dailyOverviewToggleBtn" title="Skjul daglig oversikt">–</button>
+      </div>
+      <div id="dailyOverview"></div>
+    </div>
+
+    <div class="notes-header">
+      <div class="panel-label">Notater</div>
+      <div class="text-size-controls">
+        <button id="notesFontDecBtn" title="Mindre tekst">–</button>
+        <button id="notesFontIncBtn" title="Større tekst">+</button>
+      </div>
+      <button class="notes-toggle" id="notesToggleBtn" title="Skjul notater">‹</button>
+    </div>
+    <div class="notes-sub">Gjelder for hele appen, uavhengig av uke</div>
+    <textarea id="notesArea" lang="" spellcheck="true" placeholder="Skriv notater for denne uken her …"></textarea>
+    <div class="notes-saved" id="notesSaved"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="helpOverlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <button class="modal-close" id="helpClose" aria-label="Lukk">×</button>
+    <h2 id="helpTitle">Brukerveiledning</h2>
+    <p class="modal-sub">Slik bruker du Daybook til å registrere timer.</p>
+
+    <div class="guide-section">
+      <h3>Aktiviteter</h3>
+      <p>Aktivitetene til venstre er kategoriene du registrerer tid på, for eksempel prosjekter eller oppgavetyper. Klikk på en aktivitet for å gjøre den aktiv (uthevet) — nye registreringer du lager ved å klikke eller dra i kalenderen, bruker automatisk den aktive aktiviteten.</p>
+      <p>Legg til en ny aktivitet med <strong>"+ Ny aktivitet"</strong>, gi den et navn og velg en farge. Endre navnet på en aktivitet ved å dobbeltklikke det, eller klikke blyantikonet som dukker opp når du holder musen over den. Slett en aktivitet med krysset ved siden av — tilhørende registreringer blir da også slettet, etter bekreftelse.</p>
+    </div>
+
+    <div class="guide-section">
+      <h3>Registrere tid</h3>
+      <p>Klikk i kalenderen for å legge inn en registrering på 30 minutter, eller klikk og dra ned for å sette en egendefinert lengde. Tiden rundes av til nærmeste kvarter mens du drar.</p>
+      <p>Du kan også dra en aktivitet direkte fra listen til venstre og slippe den i kalenderen — det oppretter en registrering på det tidspunktet du slipper.</p>
+      <p>Kalenderen dekker hele døgnet (00:00–24:00), men viser 12 timer om gangen. Den åpner rundt kl. 06:00 — bla opp eller ned i kalenderfeltet for å nå resten av døgnet.</p>
+    </div>
+
+    <div class="guide-section">
+      <h3>Flytte og endre lengde</h3>
+      <p>Dra midten av en registrering for å flytte den, også til en annen dag. Dra den øverste eller nederste kanten for å endre start- eller sluttidspunkt. Et lite felt viser nøyaktig klokkeslett mens du drar.</p>
+    </div>
+
+    <div class="guide-section">
+      <h3>Kommentar på en registrering</h3>
+      <p>Hold musen over en registrering og klikk blyantikonet (✎) for å legge til eller endre en kommentar, høyreklikk og velg det i menyen, eller velg registreringen og trykk <kbd>E</kbd> på tastaturet. Registreringer med kommentar får et lite talebobleikon — hold musen over det for å se hele kommentaren.</p>
+    </div>
+
+    <div class="guide-section">
+      <h3>Kopiere og lime inn</h3>
+      <p>Klikk en registrering for å velge den, kopier med <kbd>Ctrl/Cmd</kbd>+<kbd>C</kbd>, hold musen over ønsket tidspunkt og lim inn med <kbd>Ctrl/Cmd</kbd>+<kbd>V</kbd>. Du kan også høyreklikke en registrering for å kopiere, duplisere eller slette den, eller høyreklikke et tomt felt for å lime inn eller opprette en ny registrering der.</p>
+      <p>Slett en valgt registrering med <kbd>Delete</kbd> eller <kbd>Backspace</kbd>. <kbd>Escape</kbd> fjerner valget.</p>
+    </div>
+
+    <div class="guide-section">
+      <h3>Justere størrelse</h3>
+      <p>Bruk glidebryterne "Radhøyde" og "Kolonnebredde" øverst til høyre for å gjøre rutene i kalenderen høyere/lavere eller bredere/smalere, akkurat slik du synes det er lettest å lese og treffe riktig tidspunkt.</p>
+    </div>
+
+    <div class="guide-section">
+      <h3>Ukenavigasjon</h3>
+      <p>Bruk pilene øverst for å bla mellom uker, eller "Denne uken" for å hoppe tilbake til inneværende uke. Bytt mellom "Hel uke" (mandag–søndag) og "Arbeidsuke" (mandag–fredag) med knappene til høyre i verktøylinjen.</p>
+      <p>Den lille ‹-knappen midt på den loddrette linjen mellom kalenderen og høyrepanelet skjuler hele kalenderseksjonen (verktøylinje og rutenett), slik at "Daglig oversikt" og notatene kan bruke all plassen. Klikk den samme knappen (nå ›) for å vise kalenderen igjen.</p>
+    </div>
+
+    <div class="guide-section">
+      <h3>Totalt denne uken og daglig oversikt</h3>
+      <p>Venstre sidefelt viser totalt antall timer per aktivitet for uken du ser på. I panelet til høyre, over notatfeltet, finner du "Daglig oversikt" — en liste sortert per dag. Dagens samlede timetall vises i selve dato-overskriften, og under den listes hver aktivitet med sine timer for dagen. Bruk knappen ved siden av tittelen "Daglig oversikt" for å skjule eller vise hele listen.</p>
+      <p>Vil du kunne skrive en kommentar direkte under en aktivitet i denne listen? Slå på det lille avkrysningsfeltet ved siden av aktiviteten i listen til venstre. Da får aktiviteten et eget kommentarfelt for hver dag i den daglige oversikten, som lagres automatisk mens du skriver.</p>
+    </div>
+
+    <div class="guide-section">
+      <h3>Notater</h3>
+      <p>Feltet til høyre er et fritt notatfelt som gjelder for hele appen — samme notater vises uansett hvilken uke du ser på. Teksten lagres automatisk mens du skriver. Bruk pilknappen øverst i feltet for å skjule eller vise det igjen, eller dra i den tynne linjen til venstre for feltet for å justere bredden.</p>
+      <p>–/+ -knappene ved siden av "Notater" endrer tekststørrelsen i hele høyrepanelet — både i "Daglig oversikt" og i selve notatfeltet.</p>
+    </div>
+
+    <div class="guide-section">
+      <h3>Lagring</h3>
+      <p>Alt lagres automatisk i nettleseren din. Data er private for deg og synkroniseres ikke med andre — hvis du deler lenken til appen, får den andre personen sitt eget, tomme datasett i sin nettleser.</p>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Constants ----------
+  var START_HOUR = 0, END_HOUR = 24;
+  var PX_PER_MIN = 1.4; // 84px per hour (adjustable via slider)
+  var COL_MIN_PX = 118; // minimum day-column width (adjustable via slider)
+  var HOURS_VISIBLE = 12; // how many hours show at once before the calendar scrolls
+  var SIZE_KEY = "daybook_v1_size";
+  function loadSizePrefs() {
+    try {
+      var raw = localStorage.getItem(SIZE_KEY);
+      if (raw) {
+        var p = JSON.parse(raw);
+        if (typeof p.rowPx === "number") PX_PER_MIN = p.rowPx;
+        if (typeof p.colPx === "number") COL_MIN_PX = p.colPx;
+      }
+    } catch (e) { /* keep defaults */ }
+  }
+  function saveSizePrefs() {
+    try { localStorage.setItem(SIZE_KEY, JSON.stringify({ rowPx: PX_PER_MIN, colPx: COL_MIN_PX })); } catch (e) { /* ignore */ }
+  }
+  var SNAP = 15;
+  var TOTAL_MIN = (END_HOUR - START_HOUR) * 60;
+  var STORAGE_KEY = "daybook_v1_state";
+
+  var PRESET_COLORS = [
+    "#3A5BA0", "#C97A2B", "#8A4F8B", "#2F6F4F", "#B4432F",
+    "#1F8A8C", "#6B6F33", "#A3457A", "#4C5B7A", "#8C6B2F"
+  ];
+
+  var DEFAULT_ACTIVITIES = [
+    { id: "development", name: "Utvikling", color: "#3A5BA0", commentEnabled: false },
+    { id: "meetings", name: "Møter", color: "#C97A2B", commentEnabled: false },
+    { id: "admin", name: "Administrasjon", color: "#8A4F8B", commentEnabled: false }
+  ];
+
+  var NB_DAYS_SHORT = ["søn", "man", "tir", "ons", "tor", "fre", "lør"];
+  var NB_MONTHS_SHORT = ["jan", "feb", "mar", "apr", "mai", "jun", "jul", "aug", "sep", "okt", "nov", "des"];
+
+  // ---------- State ----------
+  var state = {
+    activities: DEFAULT_ACTIVITIES.slice(),
+    entries: [] // {id, dateISO, startMin, endMin, activityId}
+  };
+  var activeActivityId = null;
+  var selectedEntryId = null;
+  var clipboardEntry = null;
+  var hoverCell = null; // {dateISO, min}
+  var weekStart = getMonday(new Date());
+  var CALENDAR_COLLAPSED_KEY = "daybook_v1_calendar_collapsed";
+  var calendarCollapsed = false;
+  function loadCalendarCollapsed() {
+    try { calendarCollapsed = localStorage.getItem(CALENDAR_COLLAPSED_KEY) === "1"; } catch (e) { /* keep default */ }
+  }
+  function saveCalendarCollapsed() {
+    try { localStorage.setItem(CALENDAR_COLLAPSED_KEY, calendarCollapsed ? "1" : "0"); } catch (e) { /* ignore */ }
+  }
+
+  var DAILY_OVERVIEW_COLLAPSED_KEY = "daybook_v1_daily_overview_collapsed";
+  var dailyOverviewCollapsed = false;
+  function loadDailyOverviewCollapsed() {
+    try { dailyOverviewCollapsed = localStorage.getItem(DAILY_OVERVIEW_COLLAPSED_KEY) === "1"; } catch (e) { /* keep default */ }
+  }
+  function saveDailyOverviewCollapsed() {
+    try { localStorage.setItem(DAILY_OVERVIEW_COLLAPSED_KEY, dailyOverviewCollapsed ? "1" : "0"); } catch (e) { /* ignore */ }
+  }
+
+  var DAILY_NOTES_KEY = "daybook_v1_daily_notes";
+  var dailyNotes = {}; // { "dateISO::activityId": text }
+  function loadDailyNotes() {
+    try {
+      var raw = localStorage.getItem(DAILY_NOTES_KEY);
+      if (raw) dailyNotes = JSON.parse(raw) || {};
+    } catch (e) { dailyNotes = {}; }
+  }
+  function saveDailyNotes() {
+    try { localStorage.setItem(DAILY_NOTES_KEY, JSON.stringify(dailyNotes)); } catch (e) { /* ignore */ }
+  }
+
+  var NOTES_KEY = "daybook_v1_notes_global";
+  var OLD_NOTES_KEY = "daybook_v1_notes"; // previous per-week format, migrated below
+  var notesText = "";
+  function loadNotes() {
+    try {
+      var raw = localStorage.getItem(NOTES_KEY);
+      if (raw !== null) { notesText = raw; return; }
+      var oldRaw = localStorage.getItem(OLD_NOTES_KEY);
+      if (oldRaw) {
+        var oldObj = JSON.parse(oldRaw);
+        if (oldObj && typeof oldObj === "object") {
+          var parts = [];
+          Object.keys(oldObj).sort().forEach(function (k) {
+            if (oldObj[k] && oldObj[k].trim()) parts.push(oldObj[k].trim());
+          });
+          notesText = parts.join("\n\n");
+        }
+      }
+    } catch (e) { notesText = ""; }
+  }
+  function saveNotes() {
+    try { localStorage.setItem(NOTES_KEY, notesText); } catch (e) { /* ignore */ }
+  }
+  var NOTES_WIDTH_KEY = "daybook_v1_notes_width";
+  var notesWidthPx = 300;
+  var NOTES_WIDTH_MIN = 200;
+  var MAIN_MIN_WIDTH = 160; // leave at least this much room for the calendar section
+  function getNotesWidthMax() {
+    try {
+      var sidebarW = document.querySelector(".sidebar").getBoundingClientRect().width;
+      var resizerW = notesResizer.getBoundingClientRect().width || 7;
+      var dynamicMax = window.innerWidth - sidebarW - resizerW - MAIN_MIN_WIDTH;
+      return Math.max(NOTES_WIDTH_MIN, dynamicMax);
+    } catch (e) {
+      return 620; // fallback if anything above isn't available yet
+    }
+  }
+  function loadNotesWidth() {
+    try {
+      var v = parseInt(localStorage.getItem(NOTES_WIDTH_KEY), 10);
+      if (v) notesWidthPx = clamp(v, NOTES_WIDTH_MIN, getNotesWidthMax());
+    } catch (e) { /* keep default */ }
+  }
+  function saveNotesWidth() {
+    try { localStorage.setItem(NOTES_WIDTH_KEY, String(notesWidthPx)); } catch (e) { /* ignore */ }
+  }
+  var NOTES_SCALE_KEY = "daybook_v1_notes_scale";
+  var NOTES_SCALE_MIN = 0.8, NOTES_SCALE_MAX = 1.6, NOTES_SCALE_STEP = 0.1;
+  var notesScale = 1;
+  function loadNotesScale() {
+    try {
+      var v = parseFloat(localStorage.getItem(NOTES_SCALE_KEY));
+      if (v) notesScale = clamp(v, NOTES_SCALE_MIN, NOTES_SCALE_MAX);
+    } catch (e) { /* keep default */ }
+  }
+  function saveNotesScale() {
+    try { localStorage.setItem(NOTES_SCALE_KEY, String(notesScale)); } catch (e) { /* ignore */ }
+  }
+
+  var NOTES_COLLAPSED_KEY = "daybook_v1_notes_collapsed";
+  var notesCollapsed = false;
+  function loadNotesCollapsed() {
+    try { notesCollapsed = localStorage.getItem(NOTES_COLLAPSED_KEY) === "1"; } catch (e) { /* keep default */ }
+  }
+  function saveNotesCollapsed() {
+    try { localStorage.setItem(NOTES_COLLAPSED_KEY, notesCollapsed ? "1" : "0"); } catch (e) { /* ignore */ }
+  }
+  function debounce(fn, wait) {
+    var t;
+    return function () {
+      var args = arguments, ctx = this;
+      clearTimeout(t);
+      t = setTimeout(function () { fn.apply(ctx, args); }, wait);
+    };
+  }
+  var VIEWMODE_KEY = "daybook_v1_viewmode";
+  var viewMode = "full"; // "full" (man–søn) or "work" (man–fre)
+  function loadViewMode() {
+    try {
+      var v = localStorage.getItem(VIEWMODE_KEY);
+      if (v === "full" || v === "work") viewMode = v;
+    } catch (e) { /* keep default */ }
+  }
+  function saveViewMode() {
+    try { localStorage.setItem(VIEWMODE_KEY, viewMode); } catch (e) { /* ignore */ }
+  }
+
+  // ---------- Persistence ----------
+  function loadState() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.activities) && Array.isArray(parsed.entries)) {
+          state = parsed;
+        }
+      }
+    } catch (e) { /* start fresh */ }
+    state.activities.forEach(function (a) { if (typeof a.commentEnabled !== "boolean") a.commentEnabled = false; });
+    if (!activeActivityId && state.activities.length) activeActivityId = state.activities[0].id;
+  }
+  function saveState() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* ignore quota/errors */ }
+  }
+
+  // ---------- Utils ----------
+  function uid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  function snap(min) { return Math.round(min / SNAP) * SNAP; }
+  function fmtDateISO(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function getMonday(d) {
+    var c = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    var day = c.getDay();
+    var diff = day === 0 ? -6 : 1 - day;
+    c.setDate(c.getDate() + diff);
+    return c;
+  }
+  function addDays(d, n) { var c = new Date(d); c.setDate(c.getDate() + n); return c; }
+  function fmtTimeShort(min) {
+    var h = Math.floor(min / 60);
+    return pad(h) + ":00";
+  }
+  function fmtTimeFull(min) {
+    var h = Math.floor(min / 60), m = min % 60;
+    return pad(h) + ":" + pad(m);
+  }
+  function fmtDuration(min) {
+    var h = Math.floor(min / 60), m = min % 60;
+    if (h && m) return h + "t " + m + "min";
+    if (h) return h + "t";
+    return m + "min";
+  }
+  function fmtRange(ws) {
+    var we = addDays(ws, viewMode === "work" ? 4 : 6);
+    var sameMonth = ws.getMonth() === we.getMonth();
+    if (sameMonth) {
+      return ws.getDate() + ".–" + we.getDate() + ". " + NB_MONTHS_SHORT[we.getMonth()] + " " + we.getFullYear();
+    }
+    return ws.getDate() + ". " + NB_MONTHS_SHORT[ws.getMonth()] + " – " + we.getDate() + ". " + NB_MONTHS_SHORT[we.getMonth()] + " " + we.getFullYear();
+  }
+  function activityById(id) {
+    for (var i = 0; i < state.activities.length; i++) if (state.activities[i].id === id) return state.activities[i];
+    return null;
+  }
+  function showToast(msg) {
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function () { t.classList.remove("show"); }, 1400);
+  }
+
+  // ---------- DOM refs ----------
+  var elCalendar = document.getElementById("calendar");
+  var calendarWrapEl = document.querySelector(".calendar-wrap");
+  var elRangeLabel = document.getElementById("rangeLabel");
+  var elActivityList = document.getElementById("activityList");
+  var elTotalsList = document.getElementById("totalsList");
+  var elTotalsGrand = document.getElementById("totalsGrand");
+  var elDailyOverview = document.getElementById("dailyOverview");
+
+  // ---------- Rendering ----------
+  function weekDates() {
+    var count = viewMode === "work" ? 5 : 7;
+    var arr = [];
+    for (var i = 0; i < count; i++) arr.push(addDays(weekStart, i));
+    return arr;
+  }
+
+  function render() {
+    var savedScrollTop = calendarWrapEl.scrollTop;
+    var savedScrollLeft = calendarWrapEl.scrollLeft;
+    elRangeLabel.textContent = fmtRange(weekStart);
+    renderActivities();
+    renderTotals();
+    renderCalendar();
+    renderDailyOverview();
+    renderViewToggle();
+    fitCalendarViewport();
+    calendarWrapEl.scrollTop = savedScrollTop;
+    calendarWrapEl.scrollLeft = savedScrollLeft;
+  }
+
+  var notesArea = document.getElementById("notesArea");
+  var notesSaved = document.getElementById("notesSaved");
+
+  var persistNote = debounce(function () {
+    notesText = notesArea.value;
+    saveNotes();
+    notesSaved.textContent = "Lagret";
+    clearTimeout(persistNote._clear);
+    persistNote._clear = setTimeout(function () { notesSaved.textContent = ""; }, 1500);
+  }, 300);
+
+  notesArea.addEventListener("input", persistNote);
+
+  var notesPanel = document.getElementById("notesPanel");
+  var notesToggleBtn = document.getElementById("notesToggleBtn");
+  var notesResizer = document.getElementById("notesResizer");
+
+  function applyNotesWidth() {
+    if (notesCollapsed) return;
+    notesWidthPx = clamp(notesWidthPx, NOTES_WIDTH_MIN, getNotesWidthMax());
+    notesPanel.style.flex = "0 0 " + notesWidthPx + "px";
+    notesPanel.style.width = notesWidthPx + "px";
+  }
+  function applyNotesCollapsed() {
+    notesPanel.classList.toggle("collapsed", notesCollapsed);
+    notesToggleBtn.textContent = notesCollapsed ? "›" : "‹";
+    notesToggleBtn.title = notesCollapsed ? "Vis notater" : "Skjul notater";
+    if (notesCollapsed) {
+      notesPanel.style.flex = "";
+      notesPanel.style.width = "";
+      notesResizer.style.pointerEvents = "none";
+      notesResizer.style.opacity = "0.3";
+    } else {
+      applyNotesWidth();
+      notesResizer.style.pointerEvents = "auto";
+      notesResizer.style.opacity = "1";
+    }
+  }
+  notesToggleBtn.addEventListener("click", function () {
+    notesCollapsed = !notesCollapsed;
+    applyNotesCollapsed();
+    saveNotesCollapsed();
+  });
+
+  function applyNotesScale() {
+    notesPanel.style.setProperty("--notes-scale", notesScale);
+    Array.prototype.forEach.call(notesPanel.querySelectorAll(".daily-note-input"), autoGrowTextarea);
+  }
+  document.getElementById("notesFontDecBtn").addEventListener("click", function () {
+    notesScale = Math.round(clamp(notesScale - NOTES_SCALE_STEP, NOTES_SCALE_MIN, NOTES_SCALE_MAX) * 10) / 10;
+    applyNotesScale();
+    saveNotesScale();
+  });
+  document.getElementById("notesFontIncBtn").addEventListener("click", function () {
+    notesScale = Math.round(clamp(notesScale + NOTES_SCALE_STEP, NOTES_SCALE_MIN, NOTES_SCALE_MAX) * 10) / 10;
+    applyNotesScale();
+    saveNotesScale();
+  });
+
+  var dailyOverviewWrap = document.getElementById("dailyOverviewWrap");
+  var dailyOverviewToggleBtn = document.getElementById("dailyOverviewToggleBtn");
+  function applyDailyOverviewCollapsed() {
+    dailyOverviewWrap.classList.toggle("collapsed", dailyOverviewCollapsed);
+    dailyOverviewToggleBtn.textContent = dailyOverviewCollapsed ? "+" : "–";
+    dailyOverviewToggleBtn.title = dailyOverviewCollapsed ? "Vis daglig oversikt" : "Skjul daglig oversikt";
+  }
+  dailyOverviewToggleBtn.addEventListener("click", function () {
+    dailyOverviewCollapsed = !dailyOverviewCollapsed;
+    applyDailyOverviewCollapsed();
+    saveDailyOverviewCollapsed();
+  });
+
+  var mainSectionEl = document.getElementById("mainSection");
+  var mainToggleBtn = document.getElementById("mainToggleBtn");
+  function applyCalendarCollapsed() {
+    mainSectionEl.classList.toggle("collapsed-section", calendarCollapsed);
+    mainToggleBtn.textContent = calendarCollapsed ? "›" : "‹";
+    mainToggleBtn.title = calendarCollapsed ? "Vis kalenderseksjonen" : "Skjul kalenderseksjonen";
+    if (calendarCollapsed) {
+      notesPanel.style.flex = "";
+      notesPanel.style.width = "";
+      notesPanel.classList.add("fill-space");
+    } else {
+      notesPanel.classList.remove("fill-space");
+      if (!notesCollapsed) applyNotesWidth();
+      fitCalendarViewport();
+    }
+  }
+  mainToggleBtn.addEventListener("click", function () {
+    calendarCollapsed = !calendarCollapsed;
+    applyCalendarCollapsed();
+    saveCalendarCollapsed();
+  });
+
+  notesResizer.addEventListener("pointerdown", function (e) {
+    if (notesCollapsed || calendarCollapsed || e.target === mainToggleBtn) return;
+    e.preventDefault();
+    var startX = e.clientX;
+    var startWidth = notesPanel.getBoundingClientRect().width;
+    var dragMax = getNotesWidthMax();
+    notesResizer.classList.add("dragging");
+    function onMove(ev) {
+      var delta = startX - ev.clientX;
+      notesWidthPx = Math.round(clamp(startWidth + delta, NOTES_WIDTH_MIN, dragMax));
+      applyNotesWidth();
+    }
+    function onUp() {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      notesResizer.classList.remove("dragging");
+      saveNotesWidth();
+    }
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  });
+
+  function fitCalendarViewport() {
+    var wrap = document.querySelector(".calendar-wrap");
+    var headEl = elCalendar.querySelector(".day-head");
+    if (!wrap || !headEl) return;
+    var headerHeight = headEl.getBoundingClientRect().height;
+    var rowsHeight = HOURS_VISIBLE * 60 * PX_PER_MIN;
+    wrap.style.maxHeight = Math.ceil(headerHeight + rowsHeight) + "px";
+  }
+
+  function renderViewToggle() {
+    document.getElementById("modeFullBtn").classList.toggle("active", viewMode === "full");
+    document.getElementById("modeWorkBtn").classList.toggle("active", viewMode === "work");
+  }
+
+  function fmtHours(min) {
+    if (!min) return "0";
+    var h = min / 60;
+    return (Math.round(h * 10) / 10).toString().replace(/\.0$/, "") + "t";
+  }
+
+  function autoGrowTextarea(el) {
+    el.style.height = "0px";
+    el.style.height = el.scrollHeight + "px";
+  }
+
+  function dailyNoteKey(iso, actId) { return iso + "::" + actId; }
+
+  var persistDailyNote = debounce(function (key, value) {
+    dailyNotes[key] = value;
+    saveDailyNotes();
+  }, 300);
+
+  function renderDailyOverview() {
+    // Don't rebuild while the user is actively typing in one of these fields —
+    // a full rebuild would steal focus and the cursor position.
+    if (document.activeElement && document.activeElement.classList &&
+        document.activeElement.classList.contains("daily-note-input")) return;
+
+    var dates = weekDates();
+    var todayISO = fmtDateISO(new Date());
+    elDailyOverview.innerHTML = "";
+
+    dates.forEach(function (d) {
+      var iso = fmtDateISO(d);
+      var group = document.createElement("div");
+      group.className = "day-group";
+
+      var header = document.createElement("div");
+      header.className = "day-group-header" + (iso === todayISO ? " today" : "");
+      var headerLabel = document.createElement("div");
+      headerLabel.className = "day-header-label";
+      headerLabel.textContent = NB_DAYS_SHORT[d.getDay()] + " " + d.getDate() + ". " + NB_MONTHS_SHORT[d.getMonth()];
+      var headerTotal = document.createElement("div");
+      headerTotal.className = "day-header-total";
+      header.appendChild(headerLabel);
+      header.appendChild(headerTotal);
+      group.appendChild(header);
+
+      var body = document.createElement("div");
+      body.className = "day-group-body";
+      group.appendChild(body);
+
+      var dayTotalMin = 0;
+      var shownCount = 0;
+
+      state.activities.forEach(function (act) {
+        var mins = 0;
+        state.entries.forEach(function (en) {
+          if (en.dateISO === iso && en.activityId === act.id) mins += (en.endMin - en.startMin);
+        });
+        dayTotalMin += mins;
+
+        var key = dailyNoteKey(iso, act.id);
+        var existingNote = dailyNotes[key] || "";
+        var hasNote = act.commentEnabled && existingNote.trim().length > 0;
+        if (!mins && !hasNote) return; // hide activities with no logged time and no written note
+
+        var block = document.createElement("div");
+        block.className = "day-activity-block";
+
+        var row = document.createElement("div");
+        row.className = "day-activity-row";
+        var dot = document.createElement("div");
+        dot.className = "dot";
+        dot.style.background = act.color;
+        var nameEl = document.createElement("div");
+        nameEl.className = "day-activity-name";
+        nameEl.textContent = act.name;
+        var hoursEl = document.createElement("div");
+        hoursEl.className = "day-activity-hours" + (mins ? "" : " zero");
+        hoursEl.textContent = fmtHours(mins);
+        row.appendChild(dot); row.appendChild(nameEl); row.appendChild(hoursEl);
+        block.appendChild(row);
+
+        if (act.commentEnabled) {
+          var ta = document.createElement("textarea");
+          ta.className = "daily-note-input";
+          ta.rows = 1;
+          ta.placeholder = "Kommentar for " + act.name.toLowerCase() + " …";
+          ta.value = existingNote;
+          ta.addEventListener("input", function () {
+            persistDailyNote(key, ta.value);
+            autoGrowTextarea(ta);
+          });
+          block.appendChild(ta);
+        }
+
+        body.appendChild(block);
+        shownCount++;
+      });
+
+      headerTotal.textContent = fmtHours(dayTotalMin);
+
+      if (!shownCount) {
+        var empty = document.createElement("div");
+        empty.className = "day-empty";
+        empty.textContent = "Ingen tid registrert";
+        body.appendChild(empty);
+      }
+
+      elDailyOverview.appendChild(group);
+    });
+
+    Array.prototype.forEach.call(elDailyOverview.querySelectorAll(".daily-note-input"), autoGrowTextarea);
+  }
+
+  function escapeHtml(s) {
+    var d = document.createElement("div");
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function startRenameActivity(act, nameEl) {
+    var input = document.createElement("input");
+    input.type = "text";
+    input.className = "activity-name-input";
+    input.maxLength = 40;
+    input.value = act.name;
+    nameEl.replaceWith(input);
+    input.focus();
+    input.select();
+
+    var done = false;
+    function commit() {
+      if (done) return;
+      done = true;
+      var v = input.value.trim();
+      if (v) act.name = v;
+      saveState(); render();
+    }
+    function cancel() {
+      if (done) return;
+      done = true;
+      render();
+    }
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); commit(); }
+      else if (e.key === "Escape") { e.preventDefault(); cancel(); }
+    });
+    input.addEventListener("blur", commit);
+    input.addEventListener("click", function (e) { e.stopPropagation(); });
+    input.addEventListener("dragstart", function (e) { e.preventDefault(); e.stopPropagation(); });
+  }
+
+  function renderActivities() {
+    elActivityList.innerHTML = "";
+    state.activities.forEach(function (act) {
+      var row = document.createElement("div");
+      row.className = "activity-row" + (act.id === activeActivityId ? " active" : "");
+      row.draggable = true;
+      row.dataset.activityId = act.id;
+
+      var commentToggle = document.createElement("input");
+      commentToggle.type = "checkbox";
+      commentToggle.className = "activity-comment-toggle";
+      commentToggle.checked = !!act.commentEnabled;
+      commentToggle.title = "Vis kommentarfelt i daglig oversikt";
+      commentToggle.addEventListener("click", function (e) { e.stopPropagation(); });
+      commentToggle.addEventListener("change", function () {
+        act.commentEnabled = commentToggle.checked;
+        saveState(); render();
+      });
+
+      var dot = document.createElement("div");
+      dot.className = "dot";
+      dot.style.background = act.color;
+
+      var name = document.createElement("div");
+      name.className = "activity-name";
+      name.textContent = act.name;
+      name.title = "Dobbeltklikk for å endre navn";
+      name.addEventListener("dblclick", function (e) {
+        e.stopPropagation();
+        startRenameActivity(act, name);
+      });
+
+      var edit = document.createElement("button");
+      edit.className = "activity-edit";
+      edit.textContent = "✎";
+      edit.title = "Endre navn";
+      edit.addEventListener("click", function (e) {
+        e.stopPropagation();
+        startRenameActivity(act, name);
+      });
+
+      var del = document.createElement("button");
+      del.className = "activity-del";
+      del.textContent = "×";
+      del.title = "Slett aktivitet";
+      del.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var used = state.entries.some(function (en) { return en.activityId === act.id; });
+        if (used && !confirm('Slette "' + act.name + '" og alle tilhørende tidsregistreringer?')) return;
+        state.activities = state.activities.filter(function (a) { return a.id !== act.id; });
+        state.entries = state.entries.filter(function (en) { return en.activityId !== act.id; });
+        if (activeActivityId === act.id) activeActivityId = state.activities.length ? state.activities[0].id : null;
+        saveState(); render();
+      });
+
+      row.appendChild(commentToggle); row.appendChild(dot); row.appendChild(name); row.appendChild(edit); row.appendChild(del);
+
+      row.addEventListener("click", function () { activeActivityId = act.id; renderActivities(); });
+      row.addEventListener("dragstart", function (e) {
+        e.dataTransfer.setData("text/plain", act.id);
+        e.dataTransfer.effectAllowed = "copy";
+      });
+
+      elActivityList.appendChild(row);
+    });
+  }
+
+  function renderTotals() {
+    var dates = weekDates().map(fmtDateISO);
+    var totals = {};
+    state.entries.forEach(function (en) {
+      if (dates.indexOf(en.dateISO) === -1) return;
+      var mins = en.endMin - en.startMin;
+      totals[en.activityId] = (totals[en.activityId] || 0) + mins;
+    });
+    elTotalsList.innerHTML = "";
+    var grand = 0;
+    state.activities.forEach(function (act) {
+      var mins = totals[act.id] || 0;
+      grand += mins;
+      var row = document.createElement("div");
+      row.className = "totals-row";
+      var dot = document.createElement("div");
+      dot.className = "dot"; dot.style.background = act.color;
+      var name = document.createElement("div");
+      name.className = "totals-name"; name.textContent = act.name;
+      var val = document.createElement("div");
+      val.className = "totals-val"; val.textContent = mins ? fmtDuration(mins) : "—";
+      row.appendChild(dot); row.appendChild(name); row.appendChild(val);
+      elTotalsList.appendChild(row);
+    });
+    elTotalsGrand.innerHTML = "<span>Total</span><span>" + (grand ? fmtDuration(grand) : "0m") + "</span>";
+  }
+
+  function applyGridColumns() {
+    var dayCount = viewMode === "work" ? 5 : 7;
+    var gutter = 54;
+    var available = calendarWrapEl.clientWidth;
+    var ABSOLUTE_COL_FLOOR = 40;
+    var colMin = COL_MIN_PX;
+    if (available > 0) {
+      var perColumn = Math.floor((available - gutter) / dayCount);
+      // Only override the slider's value when there genuinely isn't room for it;
+      // otherwise the slider's chosen width always applies directly, same as the row-height slider.
+      if (perColumn < COL_MIN_PX) colMin = Math.max(ABSOLUTE_COL_FLOOR, perColumn);
+    }
+    elCalendar.style.gridTemplateColumns = gutter + "px repeat(" + dayCount + ", minmax(" + colMin + "px, 1fr))";
+  }
+
+  function renderCalendar() {
+    elCalendar.innerHTML = "";
+    var today = fmtDateISO(new Date());
+    var dayCount = viewMode === "work" ? 5 : 7;
+    applyGridColumns();
+
+    // corner
+    var corner = document.createElement("div");
+    corner.className = "corner";
+    elCalendar.appendChild(corner);
+
+    var dates = weekDates();
+
+    // day headers
+    dates.forEach(function (d) {
+      var iso = fmtDateISO(d);
+      var head = document.createElement("div");
+      head.className = "day-head" + (iso === today ? " today" : "");
+      var dow = document.createElement("div");
+      dow.className = "dow";
+      dow.textContent = NB_DAYS_SHORT[d.getDay()];
+      var dnum = document.createElement("div");
+      dnum.className = "dnum";
+      dnum.textContent = d.getDate();
+      head.appendChild(dow); head.appendChild(dnum);
+      elCalendar.appendChild(head);
+    });
+
+    // time gutter
+    var gutter = document.createElement("div");
+    gutter.className = "time-gutter";
+    var gutterInner = document.createElement("div");
+    gutterInner.className = "time-gutter-inner";
+    gutterInner.style.height = (TOTAL_MIN * PX_PER_MIN) + "px";
+    for (var h = START_HOUR; h <= END_HOUR; h++) {
+      var lbl = document.createElement("div");
+      lbl.className = "hour-label";
+      lbl.style.top = ((h - START_HOUR) * 60 * PX_PER_MIN) + "px";
+      lbl.textContent = fmtTimeShort(h * 60);
+      gutterInner.appendChild(lbl);
+    }
+    gutter.appendChild(gutterInner);
+    elCalendar.appendChild(gutter);
+
+    // day columns
+    dates.forEach(function (d) {
+      var iso = fmtDateISO(d);
+      var col = document.createElement("div");
+      col.className = "day-col" + (iso === today ? " today-col" : "");
+      col.dataset.date = iso;
+      col.style.height = (TOTAL_MIN * PX_PER_MIN) + "px";
+
+      for (var hh = START_HOUR; hh <= END_HOUR; hh++) {
+        var gl = document.createElement("div");
+        gl.className = "gridline";
+        gl.style.top = ((hh - START_HOUR) * 60 * PX_PER_MIN) + "px";
+        col.appendChild(gl);
+        if (hh < END_HOUR) {
+          var half = document.createElement("div");
+          half.className = "gridline half";
+          half.style.top = ((hh - START_HOUR) * 60 + 30) * PX_PER_MIN + "px";
+          col.appendChild(half);
+        }
+      }
+
+      state.entries.filter(function (en) { return en.dateISO === iso; })
+        .forEach(function (en) { col.appendChild(buildEntryBlock(en)); });
+
+      bindColumnEvents(col);
+      elCalendar.appendChild(col);
+    });
+  }
+
+  function buildEntryBlock(en) {
+    var act = activityById(en.activityId) || { name: "Uten navn", color: "#777" };
+    var block = document.createElement("div");
+    block.className = "entry-block" + (en.id === selectedEntryId ? " selected" : "");
+    block.dataset.entryId = en.id;
+    block.style.top = ((en.startMin - START_HOUR * 60) * PX_PER_MIN) + "px";
+    block.style.height = ((en.endMin - en.startMin) * PX_PER_MIN) + "px";
+    block.style.background = act.color;
+
+    var name = document.createElement("div");
+    name.className = "entry-name";
+    name.textContent = act.name;
+    var time = document.createElement("div");
+    time.className = "entry-time";
+    time.textContent = fmtTimeFull(en.startMin) + " – " + fmtTimeFull(en.endMin);
+
+    var del = document.createElement("button");
+    del.className = "entry-del";
+    del.textContent = "×";
+    del.title = "Slett";
+    del.addEventListener("click", function (e) { e.stopPropagation(); deleteEntry(en.id); });
+
+    var editBtn = document.createElement("button");
+    editBtn.className = "entry-comment-btn";
+    editBtn.textContent = "✎";
+    editBtn.title = en.note ? "Endre kommentar" : "Legg til kommentar";
+    editBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var r = editBtn.getBoundingClientRect();
+      openCommentPopover(en, r.left, r.bottom + 6);
+    });
+
+    var topHandle = document.createElement("div");
+    topHandle.className = "entry-handle top";
+    var bottomHandle = document.createElement("div");
+    bottomHandle.className = "entry-handle bottom";
+
+    var durationMin = en.endMin - en.startMin;
+    block.appendChild(name);
+    if (durationMin > 24) block.appendChild(time);
+    if (en.note && durationMin > 40) {
+      var noteLine = document.createElement("div");
+      noteLine.className = "entry-note";
+      noteLine.textContent = en.note;
+      block.appendChild(noteLine);
+    }
+    if (en.note) {
+      var noteDot = document.createElement("div");
+      noteDot.className = "entry-note-dot";
+      noteDot.textContent = "🗨";
+      noteDot.title = en.note;
+      block.appendChild(noteDot);
+    }
+    block.appendChild(editBtn);
+    block.appendChild(del);
+    block.appendChild(topHandle);
+    block.appendChild(bottomHandle);
+
+    bindBlockEvents(block, en, topHandle, bottomHandle);
+    return block;
+  }
+
+  var commentPopoverEl = null;
+  function closeCommentPopover() {
+    if (commentPopoverEl) { commentPopoverEl.remove(); commentPopoverEl = null; }
+  }
+  function openCommentPopover(en, x, y) {
+    closeCommentPopover();
+    closeContextMenu();
+    var pop = document.createElement("div");
+    pop.className = "comment-popover";
+
+    var ta = document.createElement("textarea");
+    ta.placeholder = "Skriv en kommentar for denne registreringen …";
+    ta.value = en.note || "";
+
+    var actions = document.createElement("div");
+    actions.className = "comment-popover-actions";
+    var cancelBtn = document.createElement("button");
+    cancelBtn.className = "btn";
+    cancelBtn.textContent = "Avbryt";
+    var saveBtn = document.createElement("button");
+    saveBtn.className = "btn primary";
+    saveBtn.textContent = "Lagre";
+
+    actions.appendChild(cancelBtn);
+    actions.appendChild(saveBtn);
+    pop.appendChild(ta);
+    pop.appendChild(actions);
+    document.body.appendChild(pop);
+
+    var pw = pop.offsetWidth, ph = pop.offsetHeight;
+    var left = clamp(x, 8, window.innerWidth - pw - 8);
+    var top = clamp(y, 8, window.innerHeight - ph - 8);
+    pop.style.left = left + "px";
+    pop.style.top = top + "px";
+
+    commentPopoverEl = pop;
+    ta.focus();
+    ta.select();
+
+    function commit() {
+      var live = state.entries.find(function (e) { return e.id === en.id; });
+      if (live) live.note = ta.value.trim();
+      saveState(); render();
+      closeCommentPopover();
+    }
+    pop.addEventListener("click", function (e) { e.stopPropagation(); });
+    saveBtn.addEventListener("click", commit);
+    cancelBtn.addEventListener("click", closeCommentPopover);
+    ta.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commit(); }
+      else if (e.key === "Escape") { e.preventDefault(); closeCommentPopover(); }
+    });
+    setTimeout(function () {
+      document.addEventListener("click", closeCommentPopover, { once: true });
+    }, 0);
+  }
+
+  function deleteEntry(id) {
+    state.entries = state.entries.filter(function (en) { return en.id !== id; });
+    if (selectedEntryId === id) selectedEntryId = null;
+    if (clipboardEntry && clipboardEntry.id === id) clipboardEntry = null;
+    saveState(); render();
+  }
+
+  // ---------- Floating tip ----------
+  var tipEl = null;
+  function showTip(x, y, text) {
+    if (!tipEl) {
+      tipEl = document.createElement("div");
+      tipEl.className = "float-tip";
+      document.body.appendChild(tipEl);
+    }
+    tipEl.style.left = x + "px";
+    tipEl.style.top = y + "px";
+    tipEl.textContent = text;
+  }
+  function hideTip() {
+    if (tipEl) { tipEl.remove(); tipEl = null; }
+  }
+
+  // ---------- Column interactions (create + drop) ----------
+  function bindColumnEvents(col) {
+    col.addEventListener("pointerdown", function (e) {
+      if (e.target !== col) return; // only empty area, not on a gridline overlay accidentally caught
+      if (!activeActivityId) { showToast("Legg til en aktivitet først"); return; }
+      e.preventDefault();
+      var rect = col.getBoundingClientRect();
+      var startY = clamp(e.clientY - rect.top, 0, rect.height);
+      var startMinRaw = START_HOUR * 60 + startY / PX_PER_MIN;
+      var anchorMin = snap(startMinRaw);
+
+      var ghost = document.createElement("div");
+      ghost.className = "drag-ghost";
+      col.appendChild(ghost);
+
+      var moved = false;
+
+      function paintGhost(curMin) {
+        var s = Math.min(anchorMin, curMin), en = Math.max(anchorMin, curMin);
+        if (en - s < SNAP) en = s + SNAP;
+        s = clamp(s, 0 + START_HOUR * 60, END_HOUR * 60);
+        en = clamp(en, START_HOUR * 60, END_HOUR * 60);
+        ghost.style.top = ((s - START_HOUR * 60) * PX_PER_MIN) + "px";
+        ghost.style.height = ((en - s) * PX_PER_MIN) + "px";
+        return [s, en];
+      }
+      var range = paintGhost(anchorMin);
+
+      function onMove(ev) {
+        moved = true;
+        var y = clamp(ev.clientY - rect.top, 0, rect.height);
+        var curMin = snap(START_HOUR * 60 + y / PX_PER_MIN);
+        range = paintGhost(curMin);
+        showTip(ev.clientX, ev.clientY, fmtTimeFull(range[0]) + " – " + fmtTimeFull(range[1]) + " (" + fmtDuration(range[1] - range[0]) + ")");
+      }
+      function onUp() {
+        document.removeEventListener("pointermove", onMove);
+        document.removeEventListener("pointerup", onUp);
+        ghost.remove();
+        hideTip();
+        var s = range[0], en = range[1];
+        if (!moved) { s = anchorMin; en = clamp(anchorMin + 30, START_HOUR * 60, END_HOUR * 60); if (en - s < 15) s = en - 30; }
+        if (en - s < SNAP) return;
+        var entry = { id: uid(), dateISO: col.dataset.date, startMin: s, endMin: en, activityId: activeActivityId };
+        state.entries.push(entry);
+        selectedEntryId = entry.id;
+        saveState(); render();
+      }
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointerup", onUp);
+    });
+
+    // drag-and-drop from activity chip
+    col.addEventListener("dragover", function (e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      col.classList.add("dragover-hint");
+    });
+    col.addEventListener("dragleave", function () { col.classList.remove("dragover-hint"); });
+    col.addEventListener("drop", function (e) {
+      e.preventDefault();
+      col.classList.remove("dragover-hint");
+      var actId = e.dataTransfer.getData("text/plain");
+      if (!actId || !activityById(actId)) return;
+      var rect = col.getBoundingClientRect();
+      var y = clamp(e.clientY - rect.top, 0, rect.height);
+      var s = snap(START_HOUR * 60 + y / PX_PER_MIN);
+      var en = clamp(s + 60, START_HOUR * 60, END_HOUR * 60);
+      if (en - s < SNAP) s = en - SNAP;
+      var entry = { id: uid(), dateISO: col.dataset.date, startMin: s, endMin: en, activityId: actId };
+      state.entries.push(entry);
+      selectedEntryId = entry.id;
+      saveState(); render();
+    });
+
+    // hover tracking for paste target
+    col.addEventListener("pointermove", function (e) {
+      var rect = col.getBoundingClientRect();
+      var y = clamp(e.clientY - rect.top, 0, rect.height);
+      var m = snap(START_HOUR * 60 + y / PX_PER_MIN);
+      hoverCell = { dateISO: col.dataset.date, min: m };
+    });
+
+    col.addEventListener("contextmenu", function (e) {
+      if (e.target !== col) return;
+      e.preventDefault();
+      var rect = col.getBoundingClientRect();
+      var y = clamp(e.clientY - rect.top, 0, rect.height);
+      var m = snap(START_HOUR * 60 + y / PX_PER_MIN);
+      openContextMenu(e.clientX, e.clientY, [
+        clipboardEntry
+          ? { label: "Lim inn her", action: function () { pasteAt(col.dataset.date, m); } }
+          : { label: "Lim inn her", disabled: true },
+        { label: "Ny registrering her", action: function () {
+            if (!activeActivityId) { showToast("Legg til en aktivitet først"); return; }
+            var s = m, en = clamp(m + 30, START_HOUR * 60, END_HOUR * 60);
+            var entry = { id: uid(), dateISO: col.dataset.date, startMin: s, endMin: en, activityId: activeActivityId };
+            state.entries.push(entry); selectedEntryId = entry.id; saveState(); render();
+          } }
+      ]);
+    });
+  }
+
+  // ---------- Block interactions (move / resize / select) ----------
+  function bindBlockEvents(block, entryRef, topHandle, bottomHandle) {
+    function getEntry() {
+      for (var i = 0; i < state.entries.length; i++) if (state.entries[i].id === entryRef.id) return state.entries[i];
+      return null;
+    }
+
+    block.addEventListener("pointerdown", function (e) {
+      if (e.target === topHandle || e.target === bottomHandle || e.target.classList.contains("entry-del") || e.target.classList.contains("entry-comment-btn")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var en = getEntry(); if (!en) return;
+      var startClientY = e.clientY, startClientX = e.clientX;
+      var origStart = en.startMin, origEnd = en.endMin, origDate = en.dateISO;
+      var duration = origEnd - origStart;
+
+      var cols = Array.prototype.slice.call(elCalendar.querySelectorAll(".day-col"));
+      var colRects = cols.map(function (c) { return { el: c, rect: c.getBoundingClientRect() }; });
+      var moved = false;
+
+      function onMove(ev) {
+        var dy = ev.clientY - startClientY;
+        var dx = Math.abs(ev.clientX - startClientX);
+        if (Math.abs(dy) > 3 || dx > 3) moved = true;
+        var deltaMin = snap(dy / PX_PER_MIN);
+        var newStart = clamp(origStart + deltaMin, START_HOUR * 60, END_HOUR * 60 - duration);
+        var newDate = origDate;
+        for (var i = 0; i < colRects.length; i++) {
+          if (ev.clientX >= colRects[i].rect.left && ev.clientX <= colRects[i].rect.right) {
+            newDate = colRects[i].el.dataset.date; break;
+          }
+        }
+        en.startMin = newStart; en.endMin = newStart + duration; en.dateISO = newDate;
+        showTip(ev.clientX, ev.clientY, fmtTimeFull(en.startMin) + " – " + fmtTimeFull(en.endMin));
+        renderCalendarLight();
+      }
+      function onUp() {
+        document.removeEventListener("pointermove", onMove);
+        document.removeEventListener("pointerup", onUp);
+        hideTip();
+        selectedEntryId = en.id;
+        saveState(); render();
+      }
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointerup", onUp);
+    });
+
+    block.addEventListener("contextmenu", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      selectedEntryId = entryRef.id; render();
+      var menuX = e.clientX, menuY = e.clientY;
+      openContextMenu(e.clientX, e.clientY, [
+        { label: entryRef.note ? "Endre kommentar" : "Legg til kommentar", action: function () { openCommentPopover(entryRef, menuX, menuY); } },
+        { label: "Kopier", action: function () { copyEntry(entryRef.id); } },
+        { label: "Dupliser", action: function () { duplicateEntry(entryRef.id); } },
+        { label: "Slett", danger: true, action: function () { deleteEntry(entryRef.id); } }
+      ]);
+    });
+
+    [topHandle, bottomHandle].forEach(function (handle, idx) {
+      var isTop = idx === 0;
+      handle.addEventListener("pointerdown", function (e) {
+        e.preventDefault(); e.stopPropagation();
+        var en = getEntry(); if (!en) return;
+        var colRect = block.closest(".day-col").getBoundingClientRect();
+        function onMove(ev) {
+          var y = clamp(ev.clientY - colRect.top, 0, colRect.height);
+          var m = snap(START_HOUR * 60 + y / PX_PER_MIN);
+          if (isTop) {
+            en.startMin = clamp(Math.min(m, en.endMin - SNAP), START_HOUR * 60, en.endMin - SNAP);
+          } else {
+            en.endMin = clamp(Math.max(m, en.startMin + SNAP), en.startMin + SNAP, END_HOUR * 60);
+          }
+          showTip(ev.clientX, ev.clientY, fmtTimeFull(en.startMin) + " – " + fmtTimeFull(en.endMin) + " (" + fmtDuration(en.endMin - en.startMin) + ")");
+          renderCalendarLight();
+        }
+        function onUp() {
+          document.removeEventListener("pointermove", onMove);
+          document.removeEventListener("pointerup", onUp);
+          hideTip();
+          selectedEntryId = en.id;
+          saveState(); render();
+        }
+        document.addEventListener("pointermove", onMove);
+        document.addEventListener("pointerup", onUp);
+      });
+    });
+  }
+
+  // cheap re-render during drag (positions only, no full rebuild of listeners lost—rebuild anyway but ok perf at this scale)
+  function renderCalendarLight() {
+    var savedScrollTop = calendarWrapEl.scrollTop;
+    var savedScrollLeft = calendarWrapEl.scrollLeft;
+    renderCalendar();
+    renderTotals();
+    renderDailyOverview();
+    calendarWrapEl.scrollTop = savedScrollTop;
+    calendarWrapEl.scrollLeft = savedScrollLeft;
+  }
+
+  // ---------- Copy / paste ----------
+  function copyEntry(id) {
+    var en = state.entries.find(function (e) { return e.id === id; });
+    if (!en) return;
+    clipboardEntry = { dateISO: en.dateISO, startMin: en.startMin, endMin: en.endMin, activityId: en.activityId, note: en.note || "" };
+    showToast("Kopiert");
+  }
+  function duplicateEntry(id) {
+    var en = state.entries.find(function (e) { return e.id === id; });
+    if (!en) return;
+    var dur = en.endMin - en.startMin;
+    var s = en.endMin, eMin = clamp(s + dur, s, END_HOUR * 60);
+    if (eMin - s < SNAP) { s = clamp(en.startMin - dur, START_HOUR * 60, END_HOUR*60); eMin = s + dur; }
+    var copy = { id: uid(), dateISO: en.dateISO, startMin: s, endMin: eMin, activityId: en.activityId, note: en.note || "" };
+    state.entries.push(copy); selectedEntryId = copy.id;
+    saveState(); render();
+  }
+  function pasteAt(dateISO, min) {
+    if (!clipboardEntry) return;
+    var dur = clipboardEntry.endMin - clipboardEntry.startMin;
+    var s = clamp(min, START_HOUR * 60, END_HOUR * 60 - dur);
+    var en = clamp(s + dur, s, END_HOUR * 60);
+    var entry = { id: uid(), dateISO: dateISO, startMin: s, endMin: en, activityId: clipboardEntry.activityId, note: clipboardEntry.note || "" };
+    state.entries.push(entry); selectedEntryId = entry.id;
+    saveState(); render();
+    showToast("Limt inn");
+  }
+
+  document.addEventListener("keydown", function (e) {
+    var tag = (e.target && e.target.tagName) || "";
+    if (tag === "INPUT" || tag === "TEXTAREA") return;
+    var mod = e.ctrlKey || e.metaKey;
+    if (mod && (e.key === "c" || e.key === "C")) {
+      if (selectedEntryId) { copyEntry(selectedEntryId); e.preventDefault(); }
+    } else if (mod && (e.key === "v" || e.key === "V")) {
+      if (clipboardEntry) {
+        if (hoverCell) pasteAt(hoverCell.dateISO, hoverCell.min);
+        else pasteAt(clipboardEntry.dateISO, clipboardEntry.startMin);
+        e.preventDefault();
+      }
+    } else if (e.key === "Delete" || e.key === "Backspace") {
+      if (selectedEntryId) { deleteEntry(selectedEntryId); e.preventDefault(); }
+    } else if (!mod && (e.key === "e" || e.key === "E")) {
+      if (selectedEntryId) {
+        var liveEn = state.entries.find(function (x) { return x.id === selectedEntryId; });
+        if (liveEn) {
+          var blockEl = elCalendar.querySelector('.entry-block[data-entry-id="' + selectedEntryId + '"]');
+          var px, py;
+          if (blockEl) {
+            var br = blockEl.getBoundingClientRect();
+            px = br.left; py = br.bottom + 6;
+          } else {
+            px = window.innerWidth / 2 - 110; py = window.innerHeight / 2 - 50;
+          }
+          openCommentPopover(liveEn, px, py);
+          e.preventDefault();
+        }
+      }
+    } else if (e.key === "Escape") {
+      var helpEl = document.getElementById("helpOverlay");
+      if (helpEl && helpEl.classList.contains("open")) { helpEl.classList.remove("open"); return; }
+      selectedEntryId = null; closeContextMenu(); render();
+    }
+  });
+
+  // ---------- Context menu ----------
+  var ctxMenuEl = null;
+  function openContextMenu(x, y, items) {
+    closeContextMenu();
+    var menu = document.createElement("div");
+    menu.className = "ctx-menu";
+    items.forEach(function (it) {
+      var row = document.createElement("div");
+      row.className = "ctx-item" + (it.danger ? " danger" : "") + (it.disabled ? " disabled" : "");
+      row.textContent = it.label;
+      if (!it.disabled) {
+        row.addEventListener("click", function () { it.action(); closeContextMenu(); });
+      }
+      menu.appendChild(row);
+    });
+    document.body.appendChild(menu);
+    var mw = menu.offsetWidth, mh = menu.offsetHeight;
+    menu.style.left = Math.min(x, window.innerWidth - mw - 8) + "px";
+    menu.style.top = Math.min(y, window.innerHeight - mh - 8) + "px";
+    ctxMenuEl = menu;
+    setTimeout(function () {
+      document.addEventListener("click", closeContextMenu, { once: true });
+    }, 0);
+  }
+  function closeContextMenu() {
+    if (ctxMenuEl) { ctxMenuEl.remove(); ctxMenuEl = null; }
+  }
+
+  // ---------- New activity form ----------
+  var addBtn = document.getElementById("addActivityBtn");
+  var form = document.getElementById("newActivityForm");
+  var nameInput = document.getElementById("newActivityName");
+  var swatchPicker = document.getElementById("swatchPicker");
+  var pickedColor = PRESET_COLORS[0];
+
+  function buildSwatches() {
+    swatchPicker.innerHTML = "";
+    PRESET_COLORS.forEach(function (c) {
+      var sw = document.createElement("div");
+      sw.className = "swatch" + (c === pickedColor ? " picked" : "");
+      sw.style.background = c;
+      sw.addEventListener("click", function () { pickedColor = c; buildSwatches(); });
+      swatchPicker.appendChild(sw);
+    });
+  }
+  buildSwatches();
+
+  addBtn.addEventListener("click", function () {
+    form.style.display = "flex";
+    addBtn.style.display = "none";
+    nameInput.value = "";
+    nameInput.focus();
+  });
+  document.getElementById("cancelActivityBtn").addEventListener("click", function () {
+    form.style.display = "none";
+    addBtn.style.display = "block";
+  });
+  document.getElementById("saveActivityBtn").addEventListener("click", function () {
+    var name = nameInput.value.trim();
+    if (!name) { nameInput.focus(); return; }
+    var act = { id: uid(), name: name, color: pickedColor, commentEnabled: false };
+    state.activities.push(act);
+    activeActivityId = act.id;
+    form.style.display = "none";
+    addBtn.style.display = "block";
+    saveState(); render();
+  });
+  nameInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") document.getElementById("saveActivityBtn").click();
+  });
+
+  // ---------- Help modal ----------
+  var helpOverlay = document.getElementById("helpOverlay");
+  document.getElementById("helpBtn").addEventListener("click", function () {
+    helpOverlay.classList.add("open");
+  });
+  document.getElementById("helpClose").addEventListener("click", function () {
+    helpOverlay.classList.remove("open");
+  });
+  helpOverlay.addEventListener("click", function (e) {
+    if (e.target === helpOverlay) helpOverlay.classList.remove("open");
+  });
+
+  // ---------- Size sliders ----------
+  var rowHeightSlider = document.getElementById("rowHeightSlider");
+  var colWidthSlider = document.getElementById("colWidthSlider");
+  rowHeightSlider.addEventListener("input", function () {
+    PX_PER_MIN = parseFloat(rowHeightSlider.value);
+    saveSizePrefs();
+    render();
+  });
+  colWidthSlider.addEventListener("input", function () {
+    COL_MIN_PX = parseInt(colWidthSlider.value, 10);
+    saveSizePrefs();
+    render();
+  });
+
+  // ---------- View mode toggle ----------
+  document.getElementById("modeFullBtn").addEventListener("click", function () {
+    if (viewMode === "full") return;
+    viewMode = "full"; saveViewMode(); render();
+  });
+  document.getElementById("modeWorkBtn").addEventListener("click", function () {
+    if (viewMode === "work") return;
+    viewMode = "work"; saveViewMode(); render();
+  });
+
+  // ---------- Week navigation ----------
+  document.getElementById("prevWeek").addEventListener("click", function () { weekStart = addDays(weekStart, -7); render(); });
+  document.getElementById("nextWeek").addEventListener("click", function () { weekStart = addDays(weekStart, 7); render(); });
+  document.getElementById("todayBtn").addEventListener("click", function () { weekStart = getMonday(new Date()); render(); });
+
+  window.addEventListener("resize", function () { applyNotesWidth(); });
+
+  // ---------- Keep calendar columns responsive to available width ----------
+  if (typeof ResizeObserver !== "undefined") {
+    var gridResizeObserver = new ResizeObserver(function () { applyGridColumns(); });
+    gridResizeObserver.observe(calendarWrapEl);
+  } else {
+    window.addEventListener("resize", applyGridColumns);
+  }
+
+  // ---------- Init ----------
+  loadState();
+  loadViewMode();
+  loadSizePrefs();
+  loadNotes();
+  notesArea.value = notesText;
+  loadDailyNotes();
+  loadDailyOverviewCollapsed();
+  applyDailyOverviewCollapsed();
+  loadCalendarCollapsed();
+  applyCalendarCollapsed();
+  loadNotesWidth();
+  loadNotesCollapsed();
+  applyNotesCollapsed();
+  loadNotesScale();
+  applyNotesScale();
+  rowHeightSlider.value = PX_PER_MIN;
+  colWidthSlider.value = COL_MIN_PX;
+  render();
+  (function scrollToMorning() {
+    var wrap = document.querySelector(".calendar-wrap");
+    if (wrap) wrap.scrollTop = 6 * 60 * PX_PER_MIN; // start the view around 06:00
+  })();
+})();
+</script>
+</body>
+</html>
